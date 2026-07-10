@@ -229,6 +229,11 @@ html,body{
 .db-col-card .own{ position:absolute; bottom:2px; right:2px; background:rgba(0,0,0,0.65); color:#fff; font-size:9px; font-weight:800; padding:1px 5px; border-radius:5px; }
 .db-col-card .in-deck{ position:absolute; top:2px; left:2px; background:var(--gold); color:#241a00; font-size:9px; font-weight:800; padding:1px 5px; border-radius:5px; }
 .db-col-card.maxed{ opacity:.35; }
+.db-col-fallback{
+  width:100%; aspect-ratio:59/86; display:flex; align-items:center; justify-content:center;
+  text-align:center; font-size:10px; font-weight:700; color:#e6dfff; padding:4px;
+  background:linear-gradient(160deg,#2a2158,#171233); border:1px solid rgba(255,255,255,0.08);
+}
 .db-empty{ text-align:center; color:#8d87b8; padding:30px 0; font-size:12px; }
 
 /* ---------- SAVED DECKS LIST ---------- */
@@ -685,7 +690,7 @@ html,body{
 #lightbox img{ width:min(66vw,260px); border-radius:14px; box-shadow:0 20px 50px rgba(0,0,0,0.6); }
 #lightbox .lb-name{ color:#fff; font-size:16px; font-weight:800; text-align:center; padding:0 12px; }
 .card-info{
-  width:min(92vw,420px); background:rgba(255,255,255,0.05);
+  width:min(84vw,400px); background:rgba(255,255,255,0.05);
   border:1px solid rgba(255,255,255,0.1); border-radius:12px; padding:12px 14px;
   font-size:13px; line-height:1.5; color:#ddd;
 }
@@ -694,7 +699,10 @@ html,body{
 .card-info .desc{ color:#c3bee6; font-size:12px; }
 .card-info .stat-row{ display:flex; gap:14px; margin-top:6px; }
 .stat-badge{ background:rgba(0,0,0,0.35); padding:4px 8px; border-radius:8px; font-size:12px; font-weight:700; }
-.close-x{ position:absolute; top:14px; right:14px; width:34px; height:34px; border-radius:50%; background:rgba(0,0,0,0.5); border:1px solid var(--panel-border); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.close-x{ position:absolute; top:54px; right:14px; width:38px; height:38px; border-radius:50%; background:rgba(0,0,0,0.55); border:1px solid var(--panel-border); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:53; }
+.lb-tap-zone{ position:fixed; top:0; bottom:0; width:44px; z-index:52; }
+.lb-tap-zone.left{ left:0; }
+.lb-tap-zone.right{ right:0; }
 
 .hidden-el{ display:none !important; }
 .loading-note{ color:#8d87b8; font-size:12px; margin-top:10px; text-align:center; }
@@ -948,6 +956,8 @@ html,body{
 
 <!-- Lightbox -->
 <div id="lightbox" onclick="if(event.target.id==='lightbox') closeLightbox()">
+  <div class="lb-tap-zone left" onclick="closeLightbox()"></div>
+  <div class="lb-tap-zone right" onclick="closeLightbox()"></div>
   <button class="close-x" onclick="closeLightbox()" data-testid="lightbox-close">✕</button>
   <img id="lightboxImg" src="" alt="">
   <div class="lb-name" id="lightboxName"></div>
@@ -1854,7 +1864,7 @@ function renderAlbum(){
   const owned = activePool.filter(c => collection[c.id]).length;
   const pct = total ? Math.round((owned/total)*100) : 0;
   document.getElementById("albumProgressFill").style.width = pct + "%";
-  document.getElementById("albumProgressText").textContent = `${owned}/${total}`;
+  document.getElementById("albumProgressText").textContent = `${owned}/${total} cartes possédées`;
 
   // En-tête du deck si filtré
   const albumTitle = document.querySelector(".album-title");
@@ -2352,14 +2362,73 @@ function cardByIdAny(id){
       || (collection[id] && { ...collection[id], id });
 }
 function renderDeckBuilder(){
-  // En-tête
+  renderDeckSlots();
+  renderDbCollectionGrid();
+}
+function cardTileHTML(entry, inDeck){
+  const img = entry.image ? `<img src="${entry.image}" alt="${entry.name}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'db-col-fallback',textContent:'${(entry.name||'').replace(/'/g,"\\'")}'}))">` : `<div class="db-col-fallback">${entry.name||"?"}</div>`;
+  return img + (inDeck > 0 ? `<div class="in-deck">Deck ${inDeck}/3</div>` : "");
+}
+function renderDbCollectionGrid(){
+  const cgrid = document.getElementById("dbCollectionGrid");
+  cgrid.innerHTML = "";
+  const ownedList = Object.entries(collection).map(([id,e])=>({id:parseInt(id), ...e}))
+    .sort((a,b)=> (RARITY_WEIGHT[b.rarity]-RARITY_WEIGHT[a.rarity]) || a.name.localeCompare(b.name));
+  if(ownedList.length === 0){
+    cgrid.innerHTML = `<div class="db-empty" style="grid-column:1/-1;">Aucune carte encore.<br>Ouvre des boosters pour construire ton deck.</div>`;
+    return;
+  }
+  ownedList.forEach(entry=>{
+    const inDeck = currentDeck.cards.filter(id=>id===entry.id).length;
+    const maxed = inDeck >= 3;
+    const div = document.createElement("div");
+    div.className = "db-col-card" + (maxed ? " maxed" : "");
+    div.setAttribute("data-testid","db-add-"+entry.id);
+    div.innerHTML = cardTileHTML(entry, inDeck);
+    div.onclick = ()=> { if(maxed){ toast("Maximum 3 exemplaires par carte"); return; } addToDeck(entry.id); };
+    cgrid.appendChild(div);
+  });
+}
+// Ajoute/retire une carte sans tout redessiner (évite le lag / besoin de rappuyer)
+function addToDeck(id){
+  const entry = collection[id];
+  if(!entry) return;
+  const inDeck = currentDeck.cards.filter(x=>x===id).length;
+  if(inDeck >= 3){ toast("Maximum 3 exemplaires par carte"); return; }
+  if(currentDeck.cards.length >= 60){ toast("Deck plein (60 cartes max)"); return; }
+  currentDeck.cards.push(id);
+  renderDeckSlots();
+  refreshCardTile(id);
+}
+function removeFromDeck(idx){
+  const id = currentDeck.cards[idx];
+  currentDeck.cards.splice(idx,1);
+  renderDeckSlots();
+  if(id != null) refreshCardTile(id);
+}
+// Met à jour uniquement la vignette concernée (dans les 2 grilles si présente) au lieu de tout reconstruire
+function refreshCardTile(id){
+  const entry = collection[id];
+  if(!entry) return;
+  const inDeck = currentDeck.cards.filter(x=>x===id).length;
+  const maxed = inDeck >= 3;
+  ["db-add-"+id, "deck-picker-"+id].forEach(tid=>{
+    const div = document.querySelector('[data-testid="'+tid+'"]');
+    if(!div) return;
+    div.className = "db-col-card" + (maxed ? " maxed" : "");
+    div.innerHTML = cardTileHTML(entry, inDeck);
+    div.onclick = tid.startsWith("db-add-")
+      ? (()=> { if(maxed){ toast("Maximum 3 exemplaires par carte"); return; } addToDeck(id); })
+      : (()=> { if(maxed){ toast("Maximum 3 exemplaires par carte"); return; } addToDeck(id); });
+  });
+}
+function renderDeckSlots(){
   document.getElementById("dbCurrentName").textContent = currentDeck.name;
   const n = currentDeck.cards.length;
   const countEl = document.getElementById("dbCount");
   countEl.textContent = n + "/40 cartes";
   countEl.className = "db-stat " + (n >= 40 && n <= 60 ? "ok" : (n > 60 ? "warn" : ""));
 
-  // Grille du deck en cours
   const grid = document.getElementById("dbCurrentGrid");
   grid.innerHTML = "";
   currentDeck.cards.forEach((id, idx)=>{
@@ -2371,7 +2440,6 @@ function renderDeckBuilder(){
     div.onclick = ()=> removeFromDeck(idx);
     grid.appendChild(div);
   });
-  // Slots vides
   for(let i=n;i<40;i++){
     const div = document.createElement("div");
     div.className = "db-slot empty";
@@ -2379,37 +2447,6 @@ function renderDeckBuilder(){
     div.onclick = ()=> openDeckCardPicker();
     grid.appendChild(div);
   }
-
-  // Grille collection
-  const cgrid = document.getElementById("dbCollectionGrid");
-  cgrid.innerHTML = "";
-  const ownedList = Object.entries(collection).map(([id,e])=>({id:parseInt(id), ...e}))
-    .sort((a,b)=> (RARITY_WEIGHT[b.rarity]-RARITY_WEIGHT[a.rarity]) || a.name.localeCompare(b.name));
-  if(ownedList.length === 0){
-    cgrid.innerHTML = `<div class="db-empty" style="grid-column:1/-1;">Aucune carte encore.<br>Ouvre des boosters pour construire ton deck.</div>`;
-    return;
-  }
-  ownedList.forEach(entry=>{
-    const inDeck = currentDeck.cards.filter(id=>id===entry.id).length;
-    const maxCopies = 3; // Standard YGO: max 3 exemplaires par carte
-    const maxed = inDeck >= maxCopies;
-    const div = document.createElement("div");
-    div.className = "db-col-card" + (maxed ? " maxed" : "");
-    div.setAttribute("data-testid","db-add-"+entry.id);
-    div.innerHTML = `<img src="${entry.image}" alt="${entry.name}">
-      ${inDeck > 0 ? `<div class="in-deck">Deck ${inDeck}/3</div>` : ""}`;
-    div.onclick = ()=> addToDeck(entry.id);
-    cgrid.appendChild(div);
-  });
-}
-function addToDeck(id){
-  const entry = collection[id];
-  if(!entry) return;
-  const inDeck = currentDeck.cards.filter(x=>x===id).length;
-  if(inDeck >= 3){ toast("Maximum 3 exemplaires par carte"); return; }
-  if(currentDeck.cards.length >= 60){ toast("Deck plein (60 cartes max)"); return; }
-  currentDeck.cards.push(id);
-  renderDeckBuilder();
 }
 function openDeckCardPicker(){
   renderDeckPickerGrid();
@@ -2433,24 +2470,17 @@ function renderDeckPickerGrid(){
   }
   ownedList.forEach(entry=>{
     const inDeck = currentDeck.cards.filter(id=>id===entry.id).length;
-    const maxCopies = 3;
-    const maxed = inDeck >= maxCopies;
+    const maxed = inDeck >= 3;
     const div = document.createElement("div");
     div.className = "db-col-card" + (maxed ? " maxed" : "");
     div.setAttribute("data-testid","deck-picker-"+entry.id);
-    div.innerHTML = `<img src="${entry.image}" alt="${entry.name}">
-      ${inDeck > 0 ? `<div class="in-deck">Deck ${inDeck}/3</div>` : ""}`;
+    div.innerHTML = cardTileHTML(entry, inDeck);
     div.onclick = ()=>{
       if(maxed){ toast("Maximum 3 exemplaires par carte"); return; }
       addToDeck(entry.id);
-      renderDeckPickerGrid();
     };
     grid.appendChild(div);
   });
-}
-function removeFromDeck(idx){
-  currentDeck.cards.splice(idx,1);
-  renderDeckBuilder();
 }
 function clearDeck(){
   if(!currentDeck.cards.length) return;
