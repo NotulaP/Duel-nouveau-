@@ -744,13 +744,6 @@ html,body{
       </div>
       <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
     </div>
-    <div class="legend" data-testid="rarity-legend">
-      <span><i style="background:var(--rar-common)"></i>Commune</span>
-      <span><i style="background:var(--rar-rare)"></i>Rare</span>
-      <span><i style="background:var(--rar-super)"></i>Super</span>
-      <span><i style="background:var(--rar-ultra)"></i>Ultra</span>
-      <span><i style="background:var(--rar-secret)"></i>Secret</span>
-    </div>
   </div>
 
   <div class="home-panels">
@@ -779,10 +772,10 @@ html,body{
 
   <div class="bottom-nav" style="margin-top:14px; padding-bottom:8px;">
     <button class="nav-btn primary" data-testid="open-x1" onclick="startOpening(1)">
-      Ouvrir <span class="pack-price">💎50</span>
+      Ouvrir <span class="pack-price">💎100</span>
     </button>
     <button class="nav-btn secondary" data-testid="open-x10" onclick="startOpening(10)">
-      Ouvrir ×10 <span class="pack-price">💎400</span>
+      Ouvrir ×10 <span class="pack-price">💎1000</span>
     </button>
     <button class="nav-btn" data-testid="btn-album" onclick="openDeckPicker('album')">📖 Album</button>
     <button class="nav-btn" data-testid="btn-deckbuilder" onclick="openDeckBuilder()">🃏 Deck Builder</button>
@@ -920,6 +913,16 @@ html,body{
   </div>
 </div>
 
+<!-- DECK CARD PICKER (appui sur une case vide du deck) -->
+<div id="deckPickerModal" class="modal-overlay">
+  <div class="modal-box" style="max-width:420px; width:92vw; max-height:78vh; display:flex; flex-direction:column;">
+    <div class="modal-title">Choisis une carte</div>
+    <div class="modal-sub">Touche une carte de ta collection pour l'ajouter au deck (max 3 exemplaires)</div>
+    <div id="deckPickerGrid" class="db-col-grid" style="overflow-y:auto; flex:1; padding-bottom:10px; margin:0 -4px;"></div>
+    <button class="modal-btn" onclick="closeDeckPicker()" data-testid="deck-picker-close">Fermer</button>
+  </div>
+</div>
+
 <!-- SAVED DECKS -->
 <div id="savedDecks" class="screen">
   <div class="album-header">
@@ -1022,10 +1025,10 @@ async function loadCards(){
   }
   // 1) tentative API YGOPRODeck en français
   try{
-    const res = await fetch("https://db.ygoprodeck.com/api/v7/cardinfo.php?language=fr&num=300&offset=0&sort=name");
+    const res = await fetch("https://db.ygoprodeck.com/api/v7/cardinfo.php?language=fr&num=600&offset=0&sort=name");
     if(!res.ok) throw new Error("api");
     const data = await res.json();
-    allCards = data.data.slice(0,300).map(c => ({
+    allCards = data.data.slice(0,600).map(c => ({
       id: c.id,
       name: c.name,
       desc: c.desc || "",
@@ -1215,7 +1218,7 @@ const CHARACTERS = [
   /* --- Saison 1 (Yu-Gi-Oh! Duel Monsters) --- */
   { id:"yugi",    name:"Yugi",     avatar:"🟣", color:"#8d47ff", iconCardId:46986414, packSets:["SDY","LOB","MRD","MRL"],
     archetypes:["Dark Magician","Silent Magician","Silent Swordsman","Magnet Warrior","Kuriboh","Exodia","Buster Blader","Gaia The Fierce Knight","Egyptian God"],
-    nameKeywords:["Magicien Sombre","Magicienne Sombre","Kuriboh","Exodia","Guerrier Magnétique","Homme Magi","Serviteur","Buster Blader","Chevalier Féroce","Gaïa","Slifer","Osiris","Dragon Ailé","Bouclier","Dark Magician","Reine des Ténèbres","Démon Convoqué","Illusion Mystique"] },
+    nameKeywords:["Magicien Sombre","Magicienne Sombre","Kuriboh","Exodia","Guerrier Magnétique","Homme Magi","Buster Blader","Chevalier Féroce","Gaïa","Slifer","Osiris","Dark Magician","Reine des Ténèbres","Démon Convoqué","Illusion Mystique"] },
   { id:"kaiba",   name:"Kaiba",    avatar:"🐲", color:"#4fc3f7", iconCardId:89631139, packSets:["SDK","LOB","IOC","AST"],
     archetypes:["Blue-Eyes"],
     nameKeywords:["Yeux Bleus","Blue-Eyes","Dragon Blanc"] },
@@ -1224,13 +1227,13 @@ const CHARACTERS = [
     nameKeywords:["Yeux Rouges","Red-Eyes","Dragon Noir","Bébé Dragon","Épéiste Flamboyant"] },
   { id:"mai",     name:"Mai",      avatar:"🕊️", color:"#ff5cae", iconCardId:76812113, packSets:["LOB","MRL","LON"],
     archetypes:["Harpie"],
-    nameKeywords:["Harpie","Sœur Harpie","Faucon","Dame"] },
+    nameKeywords:["Harpie","Sœur Harpie","Faucon"] },
   { id:"pegasus", name:"Pegasus",  avatar:"🎭", color:"#c9a2ff", iconCardId:64631466, packSets:["SDP","MRL","LON"],
     archetypes:["Toon"],
     nameKeywords:["Toon"] },
   { id:"marik",   name:"Marik",    avatar:"🐍", color:"#c8a545", iconCardId:10000020, packSets:["PGD","LON","LOD"],
     archetypes:["Sacred Beast","Winged Dragon of Ra","Gil","Newdoria"],
-    nameKeywords:["Dragon Ailé de Râ","Ra","Slifer","Obélisque"] },
+    nameKeywords:["Dragon Ailé de Râ","Slifer","Obélisque"] },
   { id:"bakura",  name:"Bakura",   avatar:"👁️", color:"#5f3fa8", iconCardId:31829185, packSets:["LOD","PGD","PSV"],
     archetypes:["Dark Necrofear","Diabound"],
     nameKeywords:["Nécrofrayeur","Poupée de Sacrifice","Faucheur","Occulte"] },
@@ -1243,7 +1246,7 @@ const CHARACTERS = [
     nameKeywords:["Cyber Dragon","Cyber Fin","Cyber Ténèbres"] },
   { id:"chazz",   name:"Chazz",    avatar:"🗡️", color:"#3a3a3a", iconCardId:73879377, packSets:["EEN","SOI","POTD"],
     archetypes:["Armed Dragon","Ojama","VWXYZ"],
-    nameKeywords:["Dragon Armé","Ojama","VW","XY","XYZ-"] },
+    nameKeywords:["Dragon Armé","Ojama","XYZ-Dragon"] },
   { id:"aster",   name:"Aster",    avatar:"🌟", color:"#e5e5f5", iconCardId:88643173, packSets:["POTD","CDIP","SOI"],
     archetypes:["Destiny HERO"],
     nameKeywords:["HÉROS du Destin","Destiny HERO"] },
@@ -1256,7 +1259,7 @@ const CHARACTERS = [
   /* --- Yu-Gi-Oh! 5D's --- */
   { id:"yusei",   name:"Yusei",    avatar:"⚡", color:"#5cd0ff", iconCardId:44508094, packSets:["TDGS","CSOC","CRMS","RGBT"],
     archetypes:["Stardust","Synchron","Junk"],
-    nameKeywords:["Poussière d'Étoile","Synchronique","Rebut","Warrior d'Assaut"] },
+    nameKeywords:["Poussière d'Étoile","Synchronique","Rebut"] },
   { id:"jack",    name:"Jack",     avatar:"👹", color:"#e5344a", iconCardId:70902743, packSets:["CSOC","CRMS","ANPR"],
     archetypes:["Red Dragon Archfiend","Resonator"],
     nameKeywords:["Dragon Rouge Archdémon","Résonateur","Archdémon Rouge"] },
@@ -1581,10 +1584,10 @@ function startOpening(count){
     freeUsed = Math.min(stepState.freePacks, count);
   }
   const paidCount = count - freeUsed;
-  const cost = count === 10 ? { gems:400 } : { gems: 50 * paidCount };
+  const cost = count === 10 ? { gems:1000 } : { gems: 100 * paidCount };
   if(count === 10 && freeUsed > 0){
     // Réduction proportionnelle du coût ×10
-    cost.gems = Math.max(0, Math.round(400 * (paidCount/10)));
+    cost.gems = Math.max(0, Math.round(1000 * (paidCount/10)));
   }
   if(cost.gems && player.gems < cost.gems){ toast("Pas assez de 💎 gemmes"); return; }
   if(freeUsed > 0){
@@ -1741,7 +1744,9 @@ function showSummary(){
     const div = document.createElement("div");
     div.className = "summary-card" + (c.isNew ? " new" : "");
     div.style.backgroundImage = `url(${c.image})`;
+    div.style.cursor = "pointer";
     div.title = c.name;
+    div.onclick = ()=> openLightbox(c);
     grid.appendChild(div);
   });
 
@@ -2370,6 +2375,8 @@ function renderDeckBuilder(){
   for(let i=n;i<40;i++){
     const div = document.createElement("div");
     div.className = "db-slot empty";
+    div.setAttribute("data-testid","deck-slot-empty-"+i);
+    div.onclick = ()=> openDeckCardPicker();
     grid.appendChild(div);
   }
 
@@ -2403,6 +2410,43 @@ function addToDeck(id){
   if(currentDeck.cards.length >= 60){ toast("Deck plein (60 cartes max)"); return; }
   currentDeck.cards.push(id);
   renderDeckBuilder();
+}
+function openDeckCardPicker(){
+  renderDeckPickerGrid();
+  document.getElementById("deckPickerModal").classList.add("show");
+}
+function closeDeckPicker(){
+  document.getElementById("deckPickerModal").classList.remove("show");
+}
+function renderDeckPickerGrid(){
+  const grid = document.getElementById("deckPickerGrid");
+  grid.innerHTML = "";
+  const ownedList = Object.entries(collection).map(([id,e])=>({id:parseInt(id), ...e}))
+    .sort((a,b)=> (RARITY_WEIGHT[b.rarity]-RARITY_WEIGHT[a.rarity]) || a.name.localeCompare(b.name));
+  if(ownedList.length === 0){
+    grid.innerHTML = `<div class="db-empty" style="grid-column:1/-1;">Aucune carte encore.<br>Ouvre des boosters pour construire ton deck.</div>`;
+    return;
+  }
+  if(currentDeck.cards.length >= 60){
+    grid.innerHTML = `<div class="db-empty" style="grid-column:1/-1;">Deck plein (60 cartes max).</div>`;
+    return;
+  }
+  ownedList.forEach(entry=>{
+    const inDeck = currentDeck.cards.filter(id=>id===entry.id).length;
+    const maxCopies = 3;
+    const maxed = inDeck >= maxCopies;
+    const div = document.createElement("div");
+    div.className = "db-col-card" + (maxed ? " maxed" : "");
+    div.setAttribute("data-testid","deck-picker-"+entry.id);
+    div.innerHTML = `<img src="${entry.image}" alt="${entry.name}">
+      ${inDeck > 0 ? `<div class="in-deck">Deck ${inDeck}/3</div>` : ""}`;
+    div.onclick = ()=>{
+      if(maxed){ toast("Maximum 3 exemplaires par carte"); return; }
+      addToDeck(entry.id);
+      renderDeckPickerGrid();
+    };
+    grid.appendChild(div);
+  });
 }
 function removeFromDeck(idx){
   currentDeck.cards.splice(idx,1);
