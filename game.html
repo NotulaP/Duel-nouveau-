@@ -2365,9 +2365,36 @@ function renderDeckBuilder(){
   renderDeckSlots();
   renderDbCollectionGrid();
 }
-function cardTileHTML(entry, inDeck){
-  const img = entry.image ? `<img src="${entry.image}" alt="${entry.name}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'db-col-fallback',textContent:'${(entry.name||'').replace(/'/g,"\\'")}'}))">` : `<div class="db-col-fallback">${entry.name||"?"}</div>`;
-  return img + (inDeck > 0 ? `<div class="in-deck">Deck ${inDeck}/3</div>` : "");
+function buildCardTile(entry, inDeck){
+  // Construit la vignette via le DOM (pas de HTML avec du texte inséré) pour éviter
+  // tout plantage si un nom de carte contient des guillemets ou caractères spéciaux.
+  const frag = document.createDocumentFragment();
+  if(entry.image){
+    const img = document.createElement("img");
+    img.src = entry.image;
+    img.alt = entry.name || "";
+    img.loading = "lazy";       // ne décode que les images visibles à l'écran
+    img.decoding = "async";     // évite les pics mémoire qui faisaient planter Safari
+    img.addEventListener("error", function(){
+      const fb = document.createElement("div");
+      fb.className = "db-col-fallback";
+      fb.textContent = entry.name || "?";
+      img.replaceWith(fb);
+    }, { once:true });
+    frag.appendChild(img);
+  } else {
+    const fb = document.createElement("div");
+    fb.className = "db-col-fallback";
+    fb.textContent = entry.name || "?";
+    frag.appendChild(fb);
+  }
+  if(inDeck > 0){
+    const badge = document.createElement("div");
+    badge.className = "in-deck";
+    badge.textContent = "Deck " + inDeck + "/3";
+    frag.appendChild(badge);
+  }
+  return frag;
 }
 function renderDbCollectionGrid(){
   const cgrid = document.getElementById("dbCollectionGrid");
@@ -2379,14 +2406,16 @@ function renderDbCollectionGrid(){
     return;
   }
   ownedList.forEach(entry=>{
+   try{
     const inDeck = currentDeck.cards.filter(id=>id===entry.id).length;
     const maxed = inDeck >= 3;
     const div = document.createElement("div");
     div.className = "db-col-card" + (maxed ? " maxed" : "");
     div.setAttribute("data-testid","db-add-"+entry.id);
-    div.innerHTML = cardTileHTML(entry, inDeck);
+    div.appendChild(buildCardTile(entry, inDeck));
     div.onclick = ()=> { if(maxed){ toast("Maximum 3 exemplaires par carte"); return; } addToDeck(entry.id); };
     cgrid.appendChild(div);
+   }catch(e){ console.error("Carte ignorée (collection):", entry && entry.id, e); }
   });
 }
 // Ajoute/retire une carte sans tout redessiner (évite le lag / besoin de rappuyer)
@@ -2416,7 +2445,8 @@ function refreshCardTile(id){
     const div = document.querySelector('[data-testid="'+tid+'"]');
     if(!div) return;
     div.className = "db-col-card" + (maxed ? " maxed" : "");
-    div.innerHTML = cardTileHTML(entry, inDeck);
+    div.innerHTML = "";
+    div.appendChild(buildCardTile(entry, inDeck));
     div.onclick = tid.startsWith("db-add-")
       ? (()=> { if(maxed){ toast("Maximum 3 exemplaires par carte"); return; } addToDeck(id); })
       : (()=> { if(maxed){ toast("Maximum 3 exemplaires par carte"); return; } addToDeck(id); });
@@ -2436,7 +2466,15 @@ function renderDeckSlots(){
     const div = document.createElement("div");
     div.className = "db-slot";
     div.setAttribute("data-testid","deck-slot-"+idx);
-    div.innerHTML = c ? `<img src="${c.image}" alt=""><div class="rem">×</div>` : `<div style="color:#8d87b8;font-size:10px;">?</div>`;
+    if(c){
+      const img = document.createElement("img");
+      img.src = c.image; img.alt = ""; img.loading = "lazy"; img.decoding = "async";
+      const rem = document.createElement("div");
+      rem.className = "rem"; rem.textContent = "×";
+      div.appendChild(img); div.appendChild(rem);
+    } else {
+      div.innerHTML = `<div style="color:#8d87b8;font-size:10px;">?</div>`;
+    }
     div.onclick = ()=> removeFromDeck(idx);
     grid.appendChild(div);
   });
@@ -2449,11 +2487,16 @@ function renderDeckSlots(){
   }
 }
 function openDeckCardPicker(){
+  // On vide temporairement la grille du bas (cachée derrière la modale) pour ne pas
+  // garder deux grosses grilles d'images en mémoire en même temps sur mobile.
+  document.getElementById("dbCollectionGrid").innerHTML = "";
   renderDeckPickerGrid();
   document.getElementById("deckPickerModal").classList.add("show");
 }
 function closeDeckPicker(){
   document.getElementById("deckPickerModal").classList.remove("show");
+  document.getElementById("deckPickerGrid").innerHTML = "";
+  renderDbCollectionGrid();
 }
 function renderDeckPickerGrid(){
   const grid = document.getElementById("deckPickerGrid");
@@ -2469,17 +2512,19 @@ function renderDeckPickerGrid(){
     return;
   }
   ownedList.forEach(entry=>{
+   try{
     const inDeck = currentDeck.cards.filter(id=>id===entry.id).length;
     const maxed = inDeck >= 3;
     const div = document.createElement("div");
     div.className = "db-col-card" + (maxed ? " maxed" : "");
     div.setAttribute("data-testid","deck-picker-"+entry.id);
-    div.innerHTML = cardTileHTML(entry, inDeck);
+    div.appendChild(buildCardTile(entry, inDeck));
     div.onclick = ()=>{
       if(maxed){ toast("Maximum 3 exemplaires par carte"); return; }
       addToDeck(entry.id);
     };
     grid.appendChild(div);
+   }catch(e){ console.error("Carte ignorée (picker):", entry && entry.id, e); }
   });
 }
 function clearDeck(){
